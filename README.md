@@ -1,4 +1,4 @@
-![MVC Logo](https://i.imgur.com/P32andi.png)
+![MVC Logo](https://raw.githubusercontent.com/rizzn/Mullvad-VPN-Controller/refs/heads/master/assets/app.png)
 # Mullvad VPN Controller (MVC)
 
 This tool is just a slight addon to your **Mullvad VPN Software**. It offers 9 of the most secure countries based on privacy. Comes with a auto-switch function based on intervals. Randomizes through countires then randomly selects a VPN Server in this location.
@@ -25,4 +25,4 @@ mullvad relay list
 
 ## Screenshots
 
-![App Screenshot](https://i.imgur.com/zYpoDst.png)
+![App Screenshot](https://i.imgur.com/4goG2Gh.jpeg)

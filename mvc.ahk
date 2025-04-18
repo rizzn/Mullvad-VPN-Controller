@@ -21,34 +21,35 @@ LogMessages := []
 myGui := Gui()
 myGui.BackColor := "White"
 myGui.SetFont("s10", "Segoe UI")
-myGui.AddText("x10 y10 w380 h30 Center", "🌐 Mullvad VPN Controller 🌐")
+myGui.AddPicture("x170 y6 w64 h64", GetAppIconPath())
+myGui.AddText("x10 y80 w380 h30 Center", "🌐 Mullvad VPN Controller 🌐")
 myGui.SetFont("s9")
 
-myGui.AddText("x10 y50 w100 h20", "Current IP:")
-IPField := myGui.AddEdit("x120 y50 w150 h20 ReadOnly Center")
-FlagIcon := myGui.AddPicture("x280 y50 w32 h20")
-PingButton := myGui.AddButton("x330 y50 w70 h22", "Check Ping")
+myGui.AddText("x10 y110 w100 h20", "Current IP:")
+IPField := myGui.AddEdit("x76 y110 w190 h20 ReadOnly Center")
+FlagIcon := myGui.AddPicture("x274 y108 w34 h30")
+PingButton := myGui.AddButton("x316 y110 w82 h22", "Check Ping")
 PingButton.OnEvent("Click", (*) => RunPingCheck())
 
 row := 0
 for name, code in countries {
 	x := Mod(row, 3) * 132 + 10
-	y := Floor(row / 3) * 40 + 90
+	y := Floor(row / 3) * 40 + 150
 	btn := myGui.AddButton("x" x " y" y " w124 h30", name)
 	btn.OnEvent("Click", SwitchVPNButtonHandler(code, name))
 	row++
 }
 
-AutoCheck := myGui.AddCheckbox("x10 y230", "Enable auto-switch")
+AutoCheck := myGui.AddCheckbox("x10 y290", "Enable auto-switch")
 AutoCheck.OnEvent("Click", ToggleAuto)
-myGui.AddText("x260 y232 w90 h20", "Interval (min.):")
-IntervalBox := myGui.AddEdit("x360 y230 w40 h20 Number Center", Interval)
+myGui.AddText("x260 y292 w90 h20", "Interval (min.):")
+IntervalBox := myGui.AddEdit("x360 y290 w40 h20 Number Center", Interval)
 IntervalBox.OnEvent("Change", SaveIntervalToRegistry)
 
-LogBox := myGui.AddEdit("x10 y270 w390 h50 ReadOnly -Wrap +Multi")
-StartupCheck := myGui.AddCheckbox("x10 y330", "Start with Windows")
+LogBox := myGui.AddEdit("x10 y330 w390 h50 ReadOnly -Wrap +Multi")
+StartupCheck := myGui.AddCheckbox("x10 y390", "Start with Windows")
 StartupCheck.OnEvent("Click", ToggleStartup)
-myGui.AddText("x300 y330 w100 h20 Right", "Version: " AppVersion)
+myGui.AddText("x300 y390 w100 h20 Right", "Version: " AppVersion)
 
 myGui.Title := "Mullvad VPN Controller"
 SetTimer(() => ShowGui(), -100)
@@ -133,7 +134,7 @@ UpdateIPInfo() {
 }
 
 ShowGui(*) {
-	try myGui.Show("w410 h360")
+	try myGui.Show("w410 h420")
 	catch
 		myGui.Opt("+AlwaysOnTop")
 }
@@ -183,19 +184,25 @@ ParseIPLocation(json) {
 }
 
 GetFlagPath(code) {
+	code := StrUpper(code)
 	tempPath := A_Temp "\flag_" code ".png"
 	if FileExist(tempPath)
 		return tempPath
-	url := "https://flagcdn.com/w40/" code ".png"
+	url := "https://flagsapi.com/" code "/flat/64.png"
 	try {
 		req := ComObject("WinHttp.WinHttpRequest.5.1")
 		req.Open("GET", url, false)
 		req.Send()
 		if (req.Status = 200) {
-			FileAppend(req.ResponseBody, tempPath, "RAW")
+			stream := ComObject("ADODB.Stream")
+			stream.Type := 1
+			stream.Open()
+			stream.Write(req.ResponseBody)
+			stream.SaveToFile(tempPath, 2)
+			stream.Close()
 			return tempPath
 		} else {
-			AppendLog("Flag for " code " not found.")
+			AppendLog("Flag download failed. Status: " req.Status)
 			return ""
 		}
 	} catch {
@@ -204,18 +211,38 @@ GetFlagPath(code) {
 	}
 }
 
+GetAppIconPath() {
+	iconPath := A_Temp "\mullvad_app_icon.png"
+	if !FileExist(iconPath) {
+		try {
+			req := ComObject("WinHttp.WinHttpRequest.5.1")
+			req.Open("GET", "https://raw.githubusercontent.com/rizzn/Mullvad-VPN-Controller/refs/heads/master/assets/app.ico", false)
+			req.Send()
+			if (req.Status = 200) {
+				stream := ComObject("ADODB.Stream")
+				stream.Type := 1  ; binary
+				stream.Open()
+				stream.Write(req.ResponseBody)
+				stream.SaveToFile(iconPath, 2)
+				stream.Close()
+			}
+		}
+	}
+	return iconPath
+}
+
 GetPing(host := "mullvad.net") {
-    try {
-        shell := ComObject("WScript.Shell")
-        exec := shell.Exec("cmd /c ping -n 1 " host)
-        result := exec.StdOut.ReadAll()
-        if RegExMatch(result, "Zeit[=<]\s*(\d+)\s*ms", &match)
-            return match[1] " ms"
-        else
-            return "Timeout or no reply"
-    } catch {
-        return "Error"
-    }
+	try {
+		shell := ComObject("WScript.Shell")
+		exec := shell.Exec("cmd /c ping -n 1 " host)
+		result := exec.StdOut.ReadAll()
+		if RegExMatch(result, "Zeit[=<]\s*(\d+)\s*ms", &match)
+			return match[1] " ms"
+		else
+			return "Timeout or no reply"
+	} catch {
+		return "Error"
+	}
 }
 
 ToggleStartup(*) {
@@ -241,6 +268,8 @@ CheckStartupStatus() {
 	try Interval := RegRead("HKCU\Software\MullvadVPNSwitcher", "Interval")
 	AutoCheck.Value := AutoSwitch
 	IntervalBox.Value := Interval
+	if AutoSwitch
+		ToggleAuto()
 }
 
 SaveIntervalToRegistry(*) {
@@ -254,9 +283,9 @@ SaveIntervalToRegistry(*) {
 }
 
 RunPingCheck() {
-    global PingButton
-    ping := GetPing("mullvad.net")
-    AppendLog("Ping: " ping)
+	global PingButton
+	ping := GetPing("mullvad.net")
+	AppendLog("Ping: " ping)
 }
 
 OnGuiClose(*) {
